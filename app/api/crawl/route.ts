@@ -9,7 +9,14 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
     try {
-        const { url } = await req.json()
+        const { url, demo } = await req.json()
+        if (demo === true) {
+            const domain = new URL(url.startsWith('http') ? url : 'https://' + url).hostname
+            if (domain.includes('amazon.in') || domain.includes('irctc.co.in') || domain.includes('zomato.com')) {
+                const demoData = await import('@/lib/demo-data/amazon-crawl.json')
+                return NextResponse.json(demoData.default)
+            }
+        }
 
         if (!url) {
             return NextResponse.json({ error: 'URL is required' }, { status: 400 })

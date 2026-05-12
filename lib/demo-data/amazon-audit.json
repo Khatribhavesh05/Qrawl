@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "auditId": "922a54da-e93b-42b9-a595-7cd60222efce",
+  "siteId": "8b20f9f2-2937-4558-a5c3-3b713c721bc9",
+  "totalScore": 50,
+  "grade": "C",
+  "scoreBreakdown": {
+    "semantic_html": {"score": 7, "reasoning": "Good semantic structure but form inputs lack associated label elements"},
+    "navigation_structure": {"score": 8, "reasoning": "Clear primary navigation but uses javascript:void(0) links that block agents"},
+    "form_clarity": {"score": 6, "reasoning": "Search form is clear but cart forms have hidden fields without labels"},
+    "authentication": {"score": 3, "reasoning": "OpenID Connect flow required for all transactional actions — complex for agents"},
+    "captcha_presence": {"score": 10, "reasoning": "No CAPTCHA detected on any crawled pages — major advantage for agents"},
+    "dynamic_content": {"score": 2, "reasoning": "Heavy JavaScript dependency on all pages — content loads dynamically after render"},
+    "action_discoverability": {"score": 7, "reasoning": "Primary actions are findable but buried in complex navigation structure"},
+    "error_handling": {"score": 4, "reasoning": "Some error signals present but not consistently structured for agent detection"},
+    "api_parity": {"score": 2, "reasoning": "No public browsing API — all actions require UI interaction"},
+    "existing_agent_support": {"score": 1, "reasoning": "No robots.txt agent directives, no MCP support, no agents.json found"}
+  },
+  "summary": "Amazon India presents moderate agent compatibility. Guest browsing and search work well but cart operations and checkout require OpenID authentication. Heavy JavaScript dependency limits autonomous operation."
+}

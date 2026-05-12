@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(npm install *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(node -e \"console.log\\(require\\('/Users/bhavesh/Desktop/Qrawl/node_modules/ajv/package.json'\\).version, require\\('/Users/bhavesh/Desktop/Qrawl/node_modules/ajv-formats/package.json'\\).version\\)\")",
+      "Bash(python3 /Users/bhavesh/.claude/skills/ui-ux-pro-max/scripts/search.py \"developer tool SaaS dark mode agentic AI technical\" --design-system -p \"Qrawl\")",
+      "Bash(python3 /Users/bhavesh/.claude/skills/ui-ux-pro-max/scripts/search.py \"hero landing input CTA developer tool\" --domain landing)"
     ]
   }
 }
