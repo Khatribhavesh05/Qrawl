@@ -18,6 +18,7 @@ export interface ExtractedPage {
     hasSearchBar: boolean
     loadTimeMs: number
     errors: string[]
+    usedFallback?: boolean
 }
 
 export interface ExtractedForm {
@@ -38,6 +39,92 @@ export interface ExtractedInput {
     selector: string
 }
 
+function extractFromHTML(html: string, baseUrl: string, url: string): ExtractedPage {
+    const errors: string[] = ['Fallback HTML extraction used - page may be blocked or JS-heavy']
+    
+    // Parse HTML without JS execution
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i)
+    const title = titleMatch ? titleMatch[1].trim() : ''
+    
+    const metaMatch = html.match(/<meta\s+name=["']description["']\s+content=["'](.*?)["']/i)
+    const metaDescription = metaMatch ? metaMatch[1] : ''
+    
+    // Extract headings
+    const headingMatches = html.matchAll(/<h([1-6])[^>]*>(.*?)<\/h\1>/gi)
+    const headings = Array.from(headingMatches).slice(0, 20).map(match => ({
+        level: parseInt(match[1]),
+        text: match[2].replace(/<[^>]*>/g, '').trim().slice(0, 100)
+    }))
+    
+    // Extract links from HTML
+    const linkMatches = html.matchAll(/<a\s+[^>]*href=["'](.*?)["'][^>]*>(.*?)<\/a>/gi)
+    const links = Array.from(linkMatches).slice(0, 50).map(match => ({
+        href: match[1],
+        text: match[2].replace(/<[^>]*>/g, '').trim().slice(0, 50),
+        isInternal: match[1].startsWith('/') || match[1].includes(baseUrl)
+    }))
+    
+    // Extract forms (using exec instead of matchAll for compatibility)
+    const formRegex = /<form[^>]*>(.*?)<\/form>/gi
+    const formMatches: RegExpExecArray[] = []
+    let formMatch
+    while ((formMatch = formRegex.exec(html)) !== null && formMatches.length < 5) {
+        formMatches.push(formMatch)
+    }
+    const forms = formMatches.map((match, i) => {
+        const formHtml = match[1]
+        const actionMatch = match[0].match(/action=["'](.*?)["']/)
+        const methodMatch = match[0].match(/method=["'](.*?)["']/)
+        
+        const inputMatches = formHtml.matchAll(/<input[^>]*>/gi)
+        const fields = Array.from(inputMatches).map(inputMatch => {
+            const input = inputMatch[0]
+            const nameMatch = input.match(/name=["'](.*?)["']/)
+            const typeMatch = input.match(/type=["'](.*?)["']/)
+            const placeholderMatch = input.match(/placeholder=["'](.*?)["']/)
+            
+            return {
+                name: nameMatch ? nameMatch[1] : '',
+                type: typeMatch ? typeMatch[1] : 'text',
+                placeholder: placeholderMatch ? placeholderMatch[1] : '',
+                required: input.includes('required'),
+                label: '',
+                selector: nameMatch ? `[name="${nameMatch[1]}"]` : ''
+            }
+        })
+        
+        return {
+            id: `form-${i}`,
+            action: actionMatch ? actionMatch[1] : '',
+            method: methodMatch ? methodMatch[1].toUpperCase() : 'GET',
+            fields,
+            submitText: 'Submit',
+            purpose: ''
+        }
+    })
+    
+    return {
+        url,
+        title,
+        metaDescription,
+        headings,
+        links,
+        forms,
+        buttons: [],
+        inputs: [],
+        navItems: [],
+        hasCaptcha: html.toLowerCase().includes('captcha') || html.toLowerCase().includes('recaptcha'),
+        hasInfiniteScroll: false,
+        hasPopup: false,
+        isJsHeavy: true,
+        ariaLabels: [],
+        hasSearchBar: html.toLowerCase().includes('type="search"') || html.toLowerCase().includes('search'),
+        loadTimeMs: 0,
+        errors,
+        usedFallback: true
+    }
+}
+
 export async function extractPageData(page: Page, baseUrl: string): Promise<ExtractedPage> {
     const startTime = Date.now()
     const errors: string[] = []
@@ -50,6 +137,24 @@ export async function extractPageData(page: Page, baseUrl: string): Promise<Extr
     }
 
     const url = page.url()
+    
+    // Check if page is blocked or empty before proceeding
+    const bodyText = await page.textContent('body').catch(() => '')
+    const isBlocked = (bodyText || '').toLowerCase().includes('access denied') ||
+                      (bodyText || '').toLowerCase().includes('blocked') ||
+                      (bodyText || '').toLowerCase().includes('captcha required') ||
+                      (bodyText || '').toLowerCase().includes('please verify') ||
+                      (bodyText || '').length < 100
+    
+    // If blocked, use fallback HTML extraction
+    if (isBlocked) {
+        errors.push('Page appears blocked or empty, using fallback extraction')
+        const html = await page.content().catch(() => '')
+        if (html) {
+            return extractFromHTML(html, baseUrl, url)
+        }
+    }
+    
     const title = await page.title().catch(() => '')
 
     // Meta description
