@@ -778,34 +778,45 @@ export default function Home() {
               >
                 {SCORE_KEYS.map(([key, shortLabel]) => {
                   const val = result.agentsJson.agent_compatibility.score_breakdown[key] as number
+                  const reasoning = result.agentsJson.agent_compatibility.score_reasoning?.[key]
                   const barColor = val >= 7 ? '#22c55e' : val >= 4 ? '#f59e0b' : '#ef4444'
                   return (
-                    <div key={key} className="flex items-center gap-3">
-                      <span
-                        className="text-xs font-mono w-28 shrink-0 text-right"
-                        style={{ color: '#334155' }}
-                      >
-                        {shortLabel}
-                      </span>
-                      <div
-                        className="flex-1 h-1.5 rounded-full overflow-hidden"
-                        style={{ background: 'rgba(255,255,255,0.06)' }}
-                      >
+                    <div key={key} className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="text-xs font-mono w-28 shrink-0 text-right"
+                          style={{ color: '#334155' }}
+                        >
+                          {shortLabel}
+                        </span>
                         <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${val * 10}%`,
-                            background: barColor,
-                            transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)',
-                          }}
-                        />
+                          className="flex-1 h-1.5 rounded-full overflow-hidden"
+                          style={{ background: 'rgba(255,255,255,0.06)' }}
+                        >
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${val * 10}%`,
+                              background: barColor,
+                              transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)',
+                            }}
+                          />
+                        </div>
+                        <span
+                          className="text-xs font-mono tabular-nums w-4 text-right shrink-0"
+                          style={{ color: '#334155' }}
+                        >
+                          {val}
+                        </span>
                       </div>
-                      <span
-                        className="text-xs font-mono tabular-nums w-4 text-right shrink-0"
-                        style={{ color: '#334155' }}
-                      >
-                        {val}
-                      </span>
+                      {reasoning && (
+                        <p
+                          className="text-xs leading-relaxed pl-32"
+                          style={{ color: '#475569' }}
+                        >
+                          {reasoning}
+                        </p>
+                      )}
                     </div>
                   )
                 })}

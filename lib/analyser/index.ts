@@ -277,6 +277,20 @@ ${pagesSummary}`
         existing_agent_support: scoringResult.existing_agent_support.score,
     }
 
+    // Extract reasoning separately
+    const reasoning: Record<ScoreCategory, string> = {
+        semantic_html: scoringResult.semantic_html.reasoning,
+        navigation_structure: scoringResult.navigation_structure.reasoning,
+        form_clarity: scoringResult.form_clarity.reasoning,
+        authentication: scoringResult.authentication.reasoning,
+        captcha_presence: scoringResult.captcha_presence.reasoning,
+        dynamic_content: scoringResult.dynamic_content.reasoning,
+        action_discoverability: scoringResult.action_discoverability.reasoning,
+        error_handling: scoringResult.error_handling.reasoning,
+        api_parity: scoringResult.api_parity.reasoning,
+        existing_agent_support: scoringResult.existing_agent_support.reasoning,
+    }
+
     // 3b. Call 2 — generate the complete agents.json using crawl data + scores
     const scoringSummary = Object.entries(scoringResult)
         .map(([key, val]) => `${key}: ${val.score}/10 — ${val.reasoning}`)
@@ -306,10 +320,11 @@ Return the complete agents.json object now.`
 
     let agentsJson: AgentsJson = parseJson<AgentsJson>(agentsJsonRaw, 'agents.json')
 
-    // 4. Compute total score
+    // 4. Compute total score and add reasoning
     const totalScore = calculateTotalScore(breakdown)
     agentsJson.agent_compatibility.score = totalScore
     agentsJson.agent_compatibility.grade = getGrade(totalScore)
+    agentsJson.agent_compatibility.score_reasoning = reasoning
 
     // 5. Save audit to Supabase
     const { data: audit, error: auditError } = await supabase

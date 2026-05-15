@@ -4,17 +4,194 @@
   "siteId": "8b20f9f2-2937-4558-a5c3-3b713c721bc9",
   "totalScore": 50,
   "grade": "C",
-  "scoreBreakdown": {
-    "semantic_html": {"score": 7, "reasoning": "Good semantic structure but form inputs lack associated label elements"},
-    "navigation_structure": {"score": 8, "reasoning": "Clear primary navigation but uses javascript:void(0) links that block agents"},
-    "form_clarity": {"score": 6, "reasoning": "Search form is clear but cart forms have hidden fields without labels"},
-    "authentication": {"score": 3, "reasoning": "OpenID Connect flow required for all transactional actions — complex for agents"},
-    "captcha_presence": {"score": 10, "reasoning": "No CAPTCHA detected on any crawled pages — major advantage for agents"},
-    "dynamic_content": {"score": 2, "reasoning": "Heavy JavaScript dependency on all pages — content loads dynamically after render"},
-    "action_discoverability": {"score": 7, "reasoning": "Primary actions are findable but buried in complex navigation structure"},
-    "error_handling": {"score": 4, "reasoning": "Some error signals present but not consistently structured for agent detection"},
-    "api_parity": {"score": 2, "reasoning": "No public browsing API — all actions require UI interaction"},
-    "existing_agent_support": {"score": 1, "reasoning": "No robots.txt agent directives, no MCP support, no agents.json found"}
-  },
-  "summary": "Amazon India presents moderate agent compatibility. Guest browsing and search work well but cart operations and checkout require OpenID authentication. Heavy JavaScript dependency limits autonomous operation."
+  "agentsJson": {
+    "qrawl_version": "1.0",
+    "generated_at": "2026-05-15T12:00:00.000Z",
+    "expires_at": "2026-06-14T12:00:00.000Z",
+    "site": {
+      "url": "https://www.amazon.in",
+      "name": "Amazon India",
+      "description": "Online shopping for electronics, apparel, computers, books, and more",
+      "language": "en",
+      "languages_supported": ["en", "hi"],
+      "category": "E-commerce",
+      "sub_category": "General Marketplace",
+      "region": "IN",
+      "mobile_url": "https://m.amazon.in",
+      "api_available": false
+    },
+    "agent_compatibility": {
+      "score": 50,
+      "grade": "C",
+      "summary": "Amazon India presents moderate agent compatibility. Guest browsing and search work well but cart operations and checkout require OpenID authentication. Heavy JavaScript dependency limits autonomous operation.",
+      "score_breakdown": {
+        "semantic_html": 7,
+        "navigation_structure": 8,
+        "form_clarity": 6,
+        "authentication": 3,
+        "captcha_presence": 10,
+        "dynamic_content": 2,
+        "action_discoverability": 7,
+        "error_handling": 4,
+        "api_parity": 2,
+        "existing_agent_support": 1
+      },
+      "score_reasoning": {
+        "semantic_html": "Good semantic structure but form inputs lack associated label elements",
+        "navigation_structure": "Clear primary navigation but uses javascript:void(0) links that block agents",
+        "form_clarity": "Search form is clear but cart forms have hidden fields without labels",
+        "authentication": "OpenID Connect flow required for all transactional actions — complex for agents",
+        "captcha_presence": "No CAPTCHA detected on any crawled pages — major advantage for agents",
+        "dynamic_content": "Heavy JavaScript dependency on all pages — content loads dynamically after render",
+        "action_discoverability": "Primary actions are findable but buried in complex navigation structure",
+        "error_handling": "Some error signals present but not consistently structured for agent detection",
+        "api_parity": "No public browsing API — all actions require UI interaction",
+        "existing_agent_support": "No robots.txt agent directives, no MCP support, no agents.json found"
+      },
+      "last_audited": "2026-05-15T12:00:00.000Z",
+      "audited_by": "Qrawl AI"
+    },
+    "authentication": {
+      "required_for": ["add_to_cart", "checkout", "wishlist", "reviews"],
+      "not_required_for": ["browse", "search", "view_product"],
+      "methods": [
+        {
+          "type": "email_password",
+          "agent_friendly": false,
+          "url": "https://www.amazon.in/ap/signin"
+        },
+        {
+          "type": "otp",
+          "agent_friendly": false,
+          "reason": "Requires SMS verification"
+        }
+      ],
+      "session": {
+        "type": "cookie",
+        "duration_hours": 168,
+        "refresh_available": true
+      },
+      "guest_access": {
+        "available": true,
+        "limitations": ["Cannot add to cart", "Cannot save items", "Cannot checkout"]
+      }
+    },
+    "navigation": {
+      "structure": "hybrid",
+      "primary_nav": [
+        { "label": "All", "url": "/gp/site-directory" },
+        { "label": "Fresh", "url": "/fresh" },
+        { "label": "Amazon Pay", "url": "/amazonpay" },
+        { "label": "Gift Cards", "url": "/gift-cards" },
+        { "label": "Sell", "url": "/sell" }
+      ],
+      "breadcrumbs_available": true,
+      "back_navigation_safe": true,
+      "infinite_scroll_pages": ["/s?k="],
+      "pagination_available": true,
+      "pagination_type": "numbered",
+      "pagination_param": "page"
+    },
+    "actions": [
+      {
+        "id": "search",
+        "label": "Search Products",
+        "description": "Search for products by keyword",
+        "type": "form",
+        "url_pattern": "/s?k={query}",
+        "method": "GET",
+        "selector": "#twotabsearchtextbox",
+        "inputs": [
+          {
+            "name": "query",
+            "type": "string",
+            "required": true,
+            "description": "Search query",
+            "example": "laptop"
+          }
+        ],
+        "outputs": {
+          "type": "product_list",
+          "fields": ["title", "price", "rating", "url"]
+        },
+        "requires_auth": false,
+        "agent_success_signal": "[data-component-type='s-search-result']",
+        "estimated_load_time_ms": 2000
+      }
+    ],
+    "flows": [
+      {
+        "id": "product_search",
+        "description": "Search and view product details",
+        "steps": ["search", "view_product"],
+        "estimated_time_seconds": 5,
+        "requires_auth": false
+      }
+    ],
+    "blockers": [
+      {
+        "id": "js_heavy",
+        "type": "js_required",
+        "severity": "high",
+        "locations": ["all_pages"],
+        "description": "All pages require JavaScript execution for content rendering",
+        "workaround": "Use headless browser with JavaScript enabled"
+      }
+    ],
+    "forms": [
+      {
+        "id": "search_form",
+        "location": "header",
+        "purpose": "Product search",
+        "fields": [
+          {
+            "name": "field-keywords",
+            "type": "text",
+            "selector": "#twotabsearchtextbox",
+            "required": true,
+            "placeholder": "Search Amazon.in"
+          }
+        ],
+        "submit_selector": "#nav-search-submit-button",
+        "submit_method": "GET"
+      }
+    ],
+    "error_handling": {
+      "404": {
+        "url": "/404",
+        "signal": "Page Not Found",
+        "agent_action": "retry_or_skip"
+      }
+    },
+    "data_formats": {
+      "currency": "INR",
+      "currency_symbol": "₹",
+      "date_format": "DD/MM/YYYY",
+      "phone_format": "+91-XXXXXXXXXX",
+      "price_includes_tax": true
+    },
+    "rate_limits": {
+      "requests_per_minute": 60,
+      "search_per_hour": 100,
+      "recommended_delay_ms": 1000,
+      "retry_after_block_minutes": 60
+    },
+    "agent_hints": {
+      "best_entry_point": "https://www.amazon.in",
+      "primary_flow": "search_and_browse",
+      "avoid_urls": ["/ap/signin", "/gp/cart"],
+      "human_handoff_triggers": ["captcha", "otp_required", "payment"],
+      "idempotent_actions": ["search", "view_product"],
+      "non_idempotent_actions": ["add_to_cart", "checkout"],
+      "safe_to_retry": ["search", "view_product"],
+      "never_retry": ["checkout", "payment"]
+    },
+    "embed": {
+      "script_tag": "<script src=\"https://qrawl.ai/embed.js\" data-site-id=\"8b20f9f2-2937-4558-a5c3-3b713c721bc9\"></script>",
+      "agents_json_url": "https://www.amazon.in/.well-known/agents.json",
+      "verified": false,
+      "verified_at": null,
+      "badge_url": "https://qrawl.ai/badge/8b20f9f2-2937-4558-a5c3-3b713c721bc9"
+    }
+  }
 }

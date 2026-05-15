@@ -47,6 +47,18 @@ export interface AgentCompatibility {
         api_parity: number
         existing_agent_support: number
     }
+    score_reasoning?: {
+        semantic_html: string
+        navigation_structure: string
+        form_clarity: string
+        authentication: string
+        captcha_presence: string
+        dynamic_content: string
+        action_discoverability: string
+        error_handling: string
+        api_parity: string
+        existing_agent_support: string
+    }
     last_audited: string
     audited_by: string
 }
