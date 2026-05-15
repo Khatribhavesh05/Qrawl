@@ -1,11 +1,21 @@
 import { NextRequest } from 'next/server'
 import { crawlSiteWithProgress, CrawlEvent } from '@/lib/crawler/streaming'
 import { createClient } from '@supabase/supabase-js'
+import { getEnvConfig, DEMO_SITE_ID, DEMO_DOMAINS } from '@/lib/config/env'
+import { checkRateLimit, getClientIdentifier } from '@/lib/utils/rate-limit'
+
+const env = getEnvConfig()
 
 const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    env.supabaseUrl,
+    env.supabaseAnonKey
 )
+
+// Rate limit: 3 crawls per hour per IP
+const CRAWL_RATE_LIMIT = {
+    maxRequests: 3,
+    windowMs: 60 * 60 * 1000, // 1 hour
+}
 
 // Helper to create SSE formatted message
 function createSSEMessage(event: string, data: any): string {
@@ -17,21 +27,42 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limiting check
+        const clientId = getClientIdentifier(req)
+        const rateLimit = checkRateLimit(clientId, CRAWL_RATE_LIMIT)
+        
+        if (!rateLimit.allowed) {
+            const resetIn = Math.ceil((rateLimit.resetAt - Date.now()) / 1000 / 60)
+            return new Response(
+                createSSEMessage('error', {
+                    message: `Rate limit exceeded. Please try again in ${resetIn} minutes.`
+                }),
+                {
+                    status: 429,
+                    headers: {
+                        'Content-Type': 'text/event-stream',
+                        'X-RateLimit-Remaining': '0',
+                        'X-RateLimit-Reset': rateLimit.resetAt.toString(),
+                    }
+                }
+            )
+        }
+
         const body = await req.json()
         const { url, demo } = body
 
         // Demo mode check
         if (demo === true) {
             const domain = new URL(url.startsWith('http') ? url : 'https://' + url).hostname
-            if (domain.includes('amazon.in') || domain.includes('irctc.co.in') || domain.includes('zomato.com')) {
+            if (DEMO_DOMAINS.some(d => domain.includes(d))) {
                 // For demo, return mock SSE stream
                 const encoder = new TextEncoder()
                 const stream = new ReadableStream({
                     async start(controller) {
                         controller.enqueue(encoder.encode(createSSEMessage('crawl:start', { url, domain })))
                         await new Promise(resolve => setTimeout(resolve, 1000))
-                        controller.enqueue(encoder.encode(createSSEMessage('crawl:complete', { 
-                            siteId: '8b20f9f2-2937-4558-a5c3-3b713c721bc9',
+                        controller.enqueue(encoder.encode(createSSEMessage('crawl:complete', {
+                            siteId: DEMO_SITE_ID,
                             domain,
                             pagesFound: 5
                         })))
@@ -190,6 +221,8 @@ export async function POST(req: NextRequest) {
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
                 'X-Accel-Buffering': 'no', // Disable nginx buffering
+                'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+                'X-RateLimit-Reset': rateLimit.resetAt.toString(),
             }
         })
 

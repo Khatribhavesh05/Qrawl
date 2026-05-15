@@ -2,14 +2,17 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { AgentsJson, getGrade } from '@/lib/schema/agents-schema'
 import { calculateTotalScore, ScoreCategory } from '@/lib/schema/scoring'
+import { getEnvConfig } from '@/lib/config/env'
+
+const env = getEnvConfig()
 
 const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    env.supabaseUrl,
+    env.supabaseAnonKey
 )
 
 const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY!
+    apiKey: env.anthropicApiKey
 })
 
 const SCORING_SYSTEM_PROMPT = `You are an expert web analyst specialising in AI agent compatibility. You analyse crawled website data and score sites across 10 categories using EXPLICIT rubrics.

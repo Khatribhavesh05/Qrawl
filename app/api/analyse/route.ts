@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyseSite } from '@/lib/analyser'
+import { DEMO_SITE_ID } from '@/lib/config/env'
 
 export async function POST(req: NextRequest) {
     try {
         const { siteId, demo } = await req.json()
-        if (demo === true && siteId === '8b20f9f2-2937-4558-a5c3-3b713c721bc9') {
+        if (demo === true && siteId === DEMO_SITE_ID) {
             const demoData = await import('@/lib/demo-data/amazon-audit.json')
             return NextResponse.json(demoData.default)
         }

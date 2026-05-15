@@ -3,6 +3,60 @@
 import { useState, useEffect, useRef } from 'react'
 import type { AgentsJson } from '@/lib/schema/agents-schema'
 
+// ─── Info Button Component ────────────────────────────────────────────────────
+
+function InfoButton({ reasoning }: { reasoning: string }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer"
+        style={{
+          background: isOpen ? 'rgba(59,130,246,0.15)' : 'rgba(148,163,184,0.1)',
+          border: `1px solid ${isOpen ? 'rgba(59,130,246,0.3)' : 'rgba(148,163,184,0.2)'}`,
+        }}
+        onMouseEnter={(e) => {
+          if (!isOpen) e.currentTarget.style.background = 'rgba(148,163,184,0.15)'
+        }}
+        onMouseLeave={(e) => {
+          if (!isOpen) e.currentTarget.style.background = 'rgba(148,163,184,0.1)'
+        }}
+        title="Show reasoning"
+      >
+        <svg
+          width="8"
+          height="8"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={isOpen ? '#60a5fa' : '#64748b'}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div
+          className="absolute left-0 top-6 z-10 w-64 p-3 rounded-lg text-xs leading-relaxed"
+          style={{
+            background: 'rgba(15,23,42,0.98)',
+            border: '1px solid rgba(59,130,246,0.2)',
+            color: '#94a3b8',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          {reasoning}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AppState = 'input' | 'loading' | 'results' | 'error'
@@ -781,42 +835,33 @@ export default function Home() {
                   const reasoning = result.agentsJson.agent_compatibility.score_reasoning?.[key]
                   const barColor = val >= 7 ? '#22c55e' : val >= 4 ? '#f59e0b' : '#ef4444'
                   return (
-                    <div key={key} className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="text-xs font-mono w-28 shrink-0 text-right"
-                          style={{ color: '#334155' }}
-                        >
-                          {shortLabel}
-                        </span>
+                    <div key={key} className="flex items-center gap-3">
+                      <span
+                        className="text-xs font-mono w-28 shrink-0 text-right"
+                        style={{ color: '#334155' }}
+                      >
+                        {shortLabel}
+                      </span>
+                      <div
+                        className="flex-1 h-1.5 rounded-full overflow-hidden"
+                        style={{ background: 'rgba(255,255,255,0.06)' }}
+                      >
                         <div
-                          className="flex-1 h-1.5 rounded-full overflow-hidden"
-                          style={{ background: 'rgba(255,255,255,0.06)' }}
-                        >
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${val * 10}%`,
-                              background: barColor,
-                              transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)',
-                            }}
-                          />
-                        </div>
-                        <span
-                          className="text-xs font-mono tabular-nums w-4 text-right shrink-0"
-                          style={{ color: '#334155' }}
-                        >
-                          {val}
-                        </span>
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${val * 10}%`,
+                            background: barColor,
+                            transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)',
+                          }}
+                        />
                       </div>
-                      {reasoning && (
-                        <p
-                          className="text-xs leading-relaxed pl-32"
-                          style={{ color: '#475569' }}
-                        >
-                          {reasoning}
-                        </p>
-                      )}
+                      <span
+                        className="text-xs font-mono tabular-nums w-4 text-right shrink-0"
+                        style={{ color: '#334155' }}
+                      >
+                        {val}
+                      </span>
+                      {reasoning && <InfoButton reasoning={reasoning} />}
                     </div>
                   )
                 })}
