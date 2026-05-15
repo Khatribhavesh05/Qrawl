@@ -13,6 +13,13 @@ interface AnalysisResult {
   agentsJson: AgentsJson
 }
 
+interface CrawlPage {
+  url: string
+  screenshot?: string
+  pageNumber: number
+  status: 'pending' | 'crawling' | 'complete'
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LOADING_STEPS = [
@@ -93,21 +100,31 @@ export default function Home() {
   const [result, setResult]         = useState<AnalysisResult | null>(null)
   const [error, setError]           = useState('')
   const [copied, setCopied]         = useState(false)
+  const [crawlPages, setCrawlPages] = useState<CrawlPage[]>([])
+  const [currentCrawlStatus, setCurrentCrawlStatus] = useState('')
   const inputRef                    = useRef<HTMLInputElement>(null)
   const stepTimers                  = useRef<ReturnType<typeof setTimeout>[]>([])
+  const eventSourceRef              = useRef<EventSource | null>(null)
 
-  // Sequential step reveal
+  // Cleanup EventSource on unmount or state change
   useEffect(() => {
-    if (state !== 'loading') {
-      setCurrentStep(0)
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+      }
+    }
+  }, [])
+
+  // Sequential step reveal (for analysis phase)
+  useEffect(() => {
+    if (state !== 'loading' || currentStep > 0) {
       return
     }
     stepTimers.current.forEach(clearTimeout)
-    stepTimers.current = STEP_TIMINGS.map((ms, i) =>
-      setTimeout(() => setCurrentStep(i), ms)
-    )
+    // Only start step timer after crawl completes
     return () => stepTimers.current.forEach(clearTimeout)
-  }, [state])
+  }, [state, currentStep])
 
   function validateUrl(raw: string): string | null {
     const trimmed = raw.trim()
@@ -132,26 +149,147 @@ export default function Home() {
     setError('')
     setAnalysedUrl(trimmed)
     setState('loading')
+    setCrawlPages([])
+    setCurrentCrawlStatus('Starting crawl...')
+    setCurrentStep(0)
+
+    // Close any existing EventSource
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+    }
 
     try {
-      const crawlRes  = await fetch('/api/crawl', {
+      // Use fetch with streaming instead of EventSource (which doesn't support POST)
+      const response = await fetch('/api/crawl/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: trimmed }),
       })
-      const crawlData = await crawlRes.json()
-      if (!crawlRes.ok || !crawlData.siteId) throw new Error(crawlData.error ?? 'Failed to crawl site')
 
-      const analyseRes  = await fetch('/api/analyse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteId: crawlData.siteId }),
-      })
-      const analyseData = await analyseRes.json()
-      if (!analyseRes.ok || !analyseData.agentsJson) throw new Error(analyseData.error ?? 'Analysis failed')
+      if (!response.ok) {
+        throw new Error('Failed to start crawl stream')
+      }
 
-      setResult({ totalScore: analyseData.totalScore, grade: analyseData.grade, agentsJson: analyseData.agentsJson })
-      setState('results')
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      let siteId: string | null = null
+      let buffer = ''
+
+      // Process SSE stream
+      const processStream = async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              if (!line.trim()) continue
+
+              const eventMatch = line.match(/^event: (.+)$/m)
+              const dataMatch = line.match(/^data: (.+)$/m)
+
+              if (eventMatch && dataMatch) {
+                const eventType = eventMatch[1]
+                const data = JSON.parse(dataMatch[1])
+
+                // Handle different event types
+                switch (eventType) {
+                  case 'crawl:start':
+                    setCurrentCrawlStatus(`Crawling ${data.domain}...`)
+                    break
+
+                  case 'page:start':
+                    setCurrentCrawlStatus(`Loading page ${data.pageNumber}/${data.totalPages}: ${data.url}`)
+                    setCrawlPages(prev => {
+                      const existing = prev.find(p => p.url === data.url)
+                      if (existing) {
+                        return prev.map(p => p.url === data.url ? { ...p, status: 'crawling' } : p)
+                      }
+                      return [...prev, { url: data.url, pageNumber: data.pageNumber, status: 'crawling' }]
+                    })
+                    break
+
+                  case 'page:screenshot':
+                    setCrawlPages(prev =>
+                      prev.map(p => p.url === data.url
+                        ? { ...p, screenshot: `data:image/jpeg;base64,${data.screenshot}` }
+                        : p
+                      )
+                    )
+                    break
+
+                  case 'page:complete':
+                    setCrawlPages(prev =>
+                      prev.map(p => p.url === data.url ? { ...p, status: 'complete' } : p)
+                    )
+                    break
+
+                  case 'crawl:success':
+                    siteId = data.siteId
+                    setCurrentCrawlStatus(`Crawl complete! Found ${data.pagesFound} pages`)
+
+                    // Now start analysis phase
+                    setCurrentStep(1)
+                    setCurrentCrawlStatus('Analyzing with AI...')
+
+                    try {
+                      const analyseRes = await fetch('/api/analyse', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ siteId }),
+                      })
+                      const analyseData = await analyseRes.json()
+
+                      if (!analyseRes.ok || !analyseData.agentsJson) {
+                        throw new Error(analyseData.error ?? 'Analysis failed')
+                      }
+
+                      setCurrentStep(2)
+                      setCurrentCrawlStatus('Generating agents.json...')
+
+                      // Small delay for UX
+                      await new Promise(resolve => setTimeout(resolve, 1000))
+
+                      setResult({
+                        totalScore: analyseData.totalScore,
+                        grade: analyseData.grade,
+                        agentsJson: analyseData.agentsJson
+                      })
+                      setState('results')
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Analysis failed')
+                      setState('error')
+                    }
+                    break
+
+                  case 'error':
+                    setError(data.message || 'Crawl failed')
+                    setState('error')
+                    break
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Stream processing error:', err)
+          if (!siteId) {
+            setError('Stream connection lost')
+            setState('error')
+          }
+        }
+      }
+
+      processStream()
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setState('error')
@@ -176,16 +314,30 @@ export default function Home() {
   }
 
   function handleReset() {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
     setState('input')
     setUrl('')
     setResult(null)
     setError('')
+    setCrawlPages([])
+    setCurrentCrawlStatus('')
+    setCurrentStep(0)
     setTimeout(() => inputRef.current?.focus(), 50)
   }
 
   function handleTryAgain() {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
     setState('input')
     setError('')
+    setCrawlPages([])
+    setCurrentCrawlStatus('')
+    setCurrentStep(0)
     setTimeout(() => inputRef.current?.focus(), 50)
   }
 
@@ -352,21 +504,19 @@ export default function Home() {
           </div>
         )}
 
-        {/* ─────────── STATE 2: LOADING ─────────── */}
+        {/* ─────────── STATE 2: LOADING WITH LIVE CRAWL ─────────── */}
         {state === 'loading' && (
-          <div className="w-full max-w-sm flex flex-col items-center gap-7">
+          <div className="w-full max-w-3xl flex flex-col items-center gap-6">
 
-            {/* Spinner */}
-            <div className="relative w-14 h-14 flex items-center justify-center">
-              <svg className="animate-spin absolute inset-0" width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
-                <circle cx="28" cy="28" r="24" stroke="rgba(255,255,255,0.05)" strokeWidth="3.5" />
-                <path d="M28 4 A24 24 0 0 1 52 28" stroke="#22c55e" strokeWidth="3.5" strokeLinecap="round" />
-              </svg>
-              <span className="text-lg">⚙️</span>
-            </div>
-
-            {/* URL label */}
+            {/* Status header */}
             <div className="text-center">
+              <div className="relative w-14 h-14 flex items-center justify-center mx-auto mb-4">
+                <svg className="animate-spin absolute inset-0" width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+                  <circle cx="28" cy="28" r="24" stroke="rgba(255,255,255,0.05)" strokeWidth="3.5" />
+                  <path d="M28 4 A24 24 0 0 1 52 28" stroke="#22c55e" strokeWidth="3.5" strokeLinecap="round" />
+                </svg>
+                <span className="text-lg">🔍</span>
+              </div>
               <p className="text-xs font-mono mb-1.5" style={{ color: '#334155' }}>Analysing</p>
               <p
                 className="text-sm font-mono px-3 py-1.5 rounded-lg"
@@ -374,64 +524,148 @@ export default function Home() {
               >
                 {analysedUrl}
               </p>
+              {currentCrawlStatus && (
+                <p className="text-xs font-mono mt-2" style={{ color: '#4ade80' }}>
+                  {currentCrawlStatus}
+                </p>
+              )}
             </div>
 
-            {/* Step list */}
-            <div
-              className="w-full rounded-2xl border flex flex-col divide-y overflow-hidden"
-              style={{
-                background: 'rgba(255,255,255,0.025)',
-                borderColor: 'rgba(255,255,255,0.07)',
-              }}
-            >
-              {LOADING_STEPS.map((label, i) => {
-                const done   = i < currentStep
-                const active = i === currentStep
-                return (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 px-5 py-4 transition-all duration-500"
-                    style={{
-                      opacity: done || active ? 1 : 0.5,
-                      background: active ? 'rgba(34,197,94,0.04)' : 'transparent',
-                    }}
-                  >
-                    {/* Status dot / checkmark */}
+            {/* Live screenshot gallery */}
+            {crawlPages.length > 0 && (
+              <div className="w-full">
+                <p className="text-xs font-mono mb-3 text-center" style={{ color: '#475569' }}>
+                  Live Crawl — {crawlPages.filter(p => p.status === 'complete').length} / {crawlPages.length} pages
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {crawlPages.map((page, i) => (
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
+                      key={i}
+                      className="rounded-xl border overflow-hidden transition-all duration-300"
                       style={{
-                        background: done
-                          ? 'rgba(34,197,94,0.15)'
-                          : active ? 'rgba(255,255,255,0.06)' : 'transparent',
-                        border: done
-                          ? '1.5px solid rgba(34,197,94,0.5)'
-                          : active ? '1.5px solid rgba(255,255,255,0.15)' : '1.5px solid rgba(255,255,255,0.06)',
+                        background: 'rgba(255,255,255,0.03)',
+                        borderColor: page.status === 'complete'
+                          ? 'rgba(34,197,94,0.3)'
+                          : page.status === 'crawling'
+                          ? 'rgba(59,130,246,0.3)'
+                          : 'rgba(255,255,255,0.08)',
                       }}
                     >
-                      {done && (
-                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                          <path d="M2 5 L4 7 L8 3" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                      {active && <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
+                      {/* Screenshot */}
+                      <div
+                        className="relative aspect-video bg-slate-900 flex items-center justify-center"
+                        style={{ background: 'rgba(0,0,0,0.3)' }}
+                      >
+                        {page.screenshot ? (
+                          <img
+                            src={page.screenshot}
+                            alt={`Screenshot of ${page.url}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2">
+                            {page.status === 'crawling' ? (
+                              <>
+                                <div className="w-6 h-6 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                                <span className="text-xs" style={{ color: '#475569' }}>Loading...</span>
+                              </>
+                            ) : (
+                              <span className="text-2xl opacity-30">📄</span>
+                            )}
+                          </div>
+                        )}
+                        {/* Status badge */}
+                        <div
+                          className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-mono"
+                          style={{
+                            background: page.status === 'complete'
+                              ? 'rgba(34,197,94,0.9)'
+                              : page.status === 'crawling'
+                              ? 'rgba(59,130,246,0.9)'
+                              : 'rgba(100,116,139,0.9)',
+                            color: '#fff'
+                          }}
+                        >
+                          {page.status === 'complete' ? '✓' : page.status === 'crawling' ? '...' : page.pageNumber}
+                        </div>
+                      </div>
+                      {/* URL */}
+                      <div className="px-2 py-2">
+                        <p
+                          className="text-xs font-mono truncate"
+                          style={{ color: '#64748b' }}
+                          title={page.url}
+                        >
+                          {new URL(page.url).pathname || '/'}
+                        </p>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                    <span
-                      className="text-sm"
+            {/* Step list - only show during analysis phase */}
+            {currentStep > 0 && (
+              <div
+                className="w-full max-w-sm rounded-2xl border flex flex-col divide-y overflow-hidden"
+                style={{
+                  background: 'rgba(255,255,255,0.025)',
+                  borderColor: 'rgba(255,255,255,0.07)',
+                }}
+              >
+                {LOADING_STEPS.slice(1).map((label, i) => {
+                  const stepIndex = i + 1
+                  const done   = stepIndex < currentStep
+                  const active = stepIndex === currentStep
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 px-5 py-4 transition-all duration-500"
                       style={{
-                        fontFamily: 'var(--font-geist-mono)',
-                        color: done ? '#475569' : active ? '#e2e8f0' : '#94a3b8',
+                        opacity: done || active ? 1 : 0.5,
+                        background: active ? 'rgba(34,197,94,0.04)' : 'transparent',
                       }}
                     >
-                      {label}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-300"
+                        style={{
+                          background: done
+                            ? 'rgba(34,197,94,0.15)'
+                            : active ? 'rgba(255,255,255,0.06)' : 'transparent',
+                          border: done
+                            ? '1.5px solid rgba(34,197,94,0.5)'
+                            : active ? '1.5px solid rgba(255,255,255,0.15)' : '1.5px solid rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        {done && (
+                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                            <path d="M2 5 L4 7 L8 3" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                        {active && <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
+                      </div>
+                      <span
+                        className="text-sm"
+                        style={{
+                          fontFamily: 'var(--font-geist-mono)',
+                          color: done ? '#475569' : active ? '#e2e8f0' : '#94a3b8',
+                        }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             <p className="text-xs font-mono text-center" style={{ color: '#475569' }}>
-              Crawling real pages — this takes ~60 seconds
+              {crawlPages.length === 0
+                ? 'Starting crawl...'
+                : currentStep === 0
+                ? 'Crawling pages with Playwright...'
+                : 'Analyzing with Claude AI...'}
             </p>
           </div>
         )}
