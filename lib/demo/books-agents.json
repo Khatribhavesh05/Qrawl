@@ -1,0 +1,25 @@
+{
+  "site": "books.toscrape.com",
+  "best_entry_point": "https://books.toscrape.com/catalogue/page-1.html",
+  "agents": [
+    {
+      "id": "browse_catalogue",
+      "description": "Scrape book titles from the catalogue listing pages",
+      "url_pattern": "https://books.toscrape.com/catalogue/page-{page}.html",
+      "actions": [
+        {
+          "type": "extract",
+          "name": "book_titles",
+          "selector": "article.product_pod h3 a",
+          "attribute": "title",
+          "success_signal": "article.product_pod"
+        }
+      ],
+      "pagination": {
+        "param": "page",
+        "start": 1,
+        "selector": "li.next a"
+      }
+    }
+  ]
+}
