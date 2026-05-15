@@ -106,6 +106,27 @@ const SCORE_KEYS = [
   ['existing_agent_support', 'Agent Support'],
 ] as const
 
+// ─── Syntax Highlighting Helper ──────────────────────────────────────────────
+
+function syntaxHighlight(line: string): string {
+  // Escape HTML
+  line = line.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
+  
+  // Highlight strings
+  line = line.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, '<span style="color:#86efac">"$1"</span>')
+  
+  // Highlight numbers
+  line = line.replace(/\b(\d+)\b/g, '<span style="color:#fbbf24">$1</span>')
+  
+  // Highlight booleans and null
+  line = line.replace(/\b(true|false|null)\b/g, '<span style="color:#f87171">$1</span>')
+  
+  // Highlight keys (property names before colon)
+  line = line.replace(/(<span style="color:#86efac">"[^"]+")(<\/span>)(\s*:)/g, '<span style="color:#60a5fa">$1</span>$3')
+  
+  return line
+}
+
 // ─── Score ring ───────────────────────────────────────────────────────────────
 
 function ScoreRing({ score, grade }: { score: number; grade: string }) {
@@ -156,6 +177,7 @@ export default function Home() {
   const [copied, setCopied]         = useState(false)
   const [crawlPages, setCrawlPages] = useState<CrawlPage[]>([])
   const [currentCrawlStatus, setCurrentCrawlStatus] = useState('')
+  const [showFullJson, setShowFullJson] = useState(false)
   const inputRef                    = useRef<HTMLInputElement>(null)
   const stepTimers                  = useRef<ReturnType<typeof setTimeout>[]>([])
   const eventSourceRef              = useRef<EventSource | null>(null)
@@ -910,6 +932,107 @@ export default function Home() {
                   </>
                 )}
               </button>
+            </div>
+
+            {/* JSON Preview Section */}
+            <div
+              className="rounded-2xl border overflow-hidden"
+              style={{
+                background: 'rgba(255,255,255,0.02)',
+                borderColor: 'rgba(255,255,255,0.08)',
+              }}
+            >
+              {/* Header with toggle */}
+              <div
+                className="flex items-center justify-between px-4 py-3 border-b cursor-pointer"
+                style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+                onClick={() => setShowFullJson(!showFullJson)}
+              >
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                  <span className="text-sm font-mono" style={{ color: '#94a3b8' }}>
+                    agents.json preview
+                  </span>
+                </div>
+                <button
+                  className="text-xs font-mono px-2.5 py-1 rounded-lg transition-all duration-150"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#64748b',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                >
+                  {showFullJson ? 'Show preview' : 'View full agents.json'}
+                </button>
+              </div>
+
+              {/* Code preview */}
+              <div
+                className="overflow-x-auto"
+                style={{
+                  background: '#0a0f1a',
+                  maxHeight: showFullJson ? 'none' : '400px',
+                }}
+              >
+                <pre
+                  className="p-4 text-xs leading-relaxed"
+                  style={{
+                    fontFamily: 'var(--font-geist-mono)',
+                    color: '#94a3b8',
+                  }}
+                >
+                  <code>
+                    {showFullJson ? (
+                      // Full JSON
+                      JSON.stringify(result.agentsJson, null, 2)
+                        .split('\n')
+                        .map((line, i) => (
+                          <div key={i} className="hover:bg-white/5">
+                            <span style={{ color: '#334155', marginRight: '1rem', userSelect: 'none' }}>
+                              {String(i + 1).padStart(3, ' ')}
+                            </span>
+                            <span dangerouslySetInnerHTML={{ __html: syntaxHighlight(line) }} />
+                          </div>
+                        ))
+                    ) : (
+                      // Preview: key sections only
+                      (() => {
+                        const preview = {
+                          site: result.agentsJson.site,
+                          agent_compatibility: {
+                            score: result.agentsJson.agent_compatibility.score,
+                            grade: result.agentsJson.agent_compatibility.grade,
+                            summary: result.agentsJson.agent_compatibility.summary,
+                          },
+                          actions: result.agentsJson.actions.slice(0, 1),
+                          agent_hints: result.agentsJson.agent_hints,
+                        }
+                        return JSON.stringify(preview, null, 2)
+                          .split('\n')
+                          .slice(0, 20)
+                          .map((line, i) => (
+                            <div key={i} className="hover:bg-white/5">
+                              <span style={{ color: '#334155', marginRight: '1rem', userSelect: 'none' }}>
+                                {String(i + 1).padStart(3, ' ')}
+                              </span>
+                              <span dangerouslySetInnerHTML={{ __html: syntaxHighlight(line) }} />
+                            </div>
+                          ))
+                      })()
+                    )}
+                    {!showFullJson && (
+                      <div style={{ color: '#475569', fontStyle: 'italic', marginTop: '0.5rem' }}>
+                        ... {Object.keys(result.agentsJson).length - 4} more sections
+                      </div>
+                    )}
+                  </code>
+                </pre>
+              </div>
             </div>
 
             {/* Reset */}
