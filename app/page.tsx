@@ -451,7 +451,7 @@ export default function Home() {
           </span>
         </div>
         <a
-          href="https://github.com"
+          href="https://github.com/Khatribhavesh05/Qrawl"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 text-sm font-mono transition-colors duration-150 cursor-pointer"
