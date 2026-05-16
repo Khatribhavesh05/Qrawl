@@ -1,3 +1,6 @@
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 import { NextRequest, NextResponse } from 'next/server'
 import { analyseSite } from '@/lib/analyser'
 import { DEMO_SITE_ID } from '@/lib/config/env'

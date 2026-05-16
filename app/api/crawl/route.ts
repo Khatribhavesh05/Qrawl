@@ -1,3 +1,6 @@
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 import { NextRequest, NextResponse } from 'next/server'
 import { crawlSite } from '@/lib/crawler'
 import { createClient } from '@supabase/supabase-js'
