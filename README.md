@@ -14,7 +14,7 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Railway-6366f1?style=for-the-badge&logo=railway)](https://qrawl-production.up.railway.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-qrawl.onrender.com-22c55e?style=for-the-badge&logo=render)](https://qrawl.onrender.com)
 [![IBM Bob Hackathon](https://img.shields.io/badge/IBM%20Bob-Hackathon%202026-0f62fe?style=for-the-badge)](https://lablab.ai)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript)](https://typescriptlang.org)
@@ -37,7 +37,7 @@ AI agents fail on most of them — not because they're not smart, but because we
 | `sitemap.xml` | Tells search engines what pages exist | 2005 |
 | **`agents.json`** | **Tells AI agents HOW to navigate** | **2026** |
 
-> **IRCTC** won't even let an agent audit it — so hostile to automation it blocks the crawl entirely. **Amazon** scores 48/100. The agentic web is broken. Qrawl fixes that.
+> **IRCTC** won't even let an agent audit it — so hostile to automation it blocks the crawl entirely. **Amazon** scores ~49/100. The agentic web is broken. Qrawl fixes that.
 
 ---
 
@@ -68,7 +68,7 @@ Results UI + Download agents.json
 ## Results Dashboard
 
 <div align="center">
-  <img src="screenshots/results.png" alt="Qrawl results — 45/100 Grade C for books.toscrape.com" width="100%"/>
+  <img src="screenshots/results.png" alt="Qrawl results — Grade C for books.toscrape.com" width="100%"/>
   <p><em>Score breakdown with circular grade indicator and 10-category bar chart</em></p>
 </div>
 
@@ -99,7 +99,7 @@ Results UI + Download agents.json
 | example.com | 71/100 | 🟢 B | Clean structure, highly agent-friendly |
 | amazon.in | ~49/100 | 🟡 C | Heavy bot detection, dynamic JS content |
 | zerodha.com | 50/100 | 🟡 C | Auth walls block most agent flows |
-| books.toscrape.com | 45/100 | 🟡 C | No API, poor semantic HTML |
+| books.toscrape.com | ~51/100 | 🟡 C | No API, poor semantic HTML |
 | irctc.co.in | BLOCKED | 🔴 F | Hostile to all automation |
 
 ---
@@ -175,7 +175,7 @@ npm run dev
 | AI | Claude API — scoring + agents.json generation |
 | Realtime | Server-Sent Events (SSE) — live screenshot streaming |
 | Database | Supabase (Postgres) |
-| Hosting | Railway |
+| Hosting | Render |
 
 ---
 
@@ -200,7 +200,7 @@ screenshots/                   # UI screenshots for this README
 
 Built in **48 hours** solo at the [IBM Bob Hackathon](https://lablab.ai) (May 15–17, 2026) by **Bhavesh Khatri** (Team: Qrew).
 
-IBM Bob served as AI development partner throughout — reviewing the full codebase, improving scoring prompt determinism, fixing bot detection resilience, and ensuring agents.json consistency. All 6 sessions documented in `bob_sessions/`.
+IBM Bob served as AI development partner throughout — reviewing the full codebase, improving scoring prompt determinism, fixing bot detection resilience, and ensuring agents.json output consistency. All 6 sessions documented in `bob_sessions/`.
 
 ---
 
