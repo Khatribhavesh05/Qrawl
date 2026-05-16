@@ -1,5 +1,8 @@
-import { chromium, Browser, Page } from 'playwright'
+import { chromium as playwrightChromium, Browser, Page } from 'playwright-core'
+import sparticuzChromium from '@sparticuz/chromium'
 import { extractPageData, ExtractedPage } from './extractor'
+
+const isVercel = process.env.VERCEL === '1'
 
 export interface CrawlEvent {
     type: 'crawl:start' | 'page:start' | 'page:screenshot' | 'page:complete' | 'crawl:complete' | 'error'
@@ -89,9 +92,12 @@ export async function crawlSiteWithProgress(
             data: { url: baseUrl, domain }
         })
 
-        browser = await chromium.launch({
+        browser = await playwrightChromium.launch({
             headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            executablePath: isVercel ? await sparticuzChromium.executablePath() : undefined,
+            args: isVercel
+                ? sparticuzChromium.args
+                : ['--no-sandbox', '--disable-setuid-sandbox']
         })
 
         const context = await browser.newContext({

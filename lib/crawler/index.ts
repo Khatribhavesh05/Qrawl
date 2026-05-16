@@ -1,5 +1,8 @@
-import { chromium, Browser, Page, BrowserContext } from 'playwright'
+import { chromium as playwrightChromium, Browser, Page, BrowserContext } from 'playwright-core'
+import sparticuzChromium from '@sparticuz/chromium'
 import { extractPageData, ExtractedPage } from './extractor'
+
+const isVercel = process.env.VERCEL === '1'
 
 export interface CrawlResult {
     domain: string
@@ -157,16 +160,19 @@ export async function crawlSite(inputUrl: string): Promise<CrawlResult> {
     let browser: Browser | null = null
 
     try {
-        browser = await chromium.launch({
+        browser = await playwrightChromium.launch({
             headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-dev-shm-usage',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins,site-per-process'
-            ]
+            executablePath: isVercel ? await sparticuzChromium.executablePath() : undefined,
+            args: isVercel
+                ? sparticuzChromium.args
+                : [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
+                ]
         })
 
         const context = await createStealthContext(browser)
