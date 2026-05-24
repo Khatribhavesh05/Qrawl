@@ -15,7 +15,6 @@
 <br/>
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-qrawl.onrender.com-22c55e?style=for-the-badge&logo=render)](https://qrawl.onrender.com)
-[![IBM Bob Hackathon](https://img.shields.io/badge/IBM%20Bob-Hackathon%202026-0f62fe?style=for-the-badge)](https://lablab.ai)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript)](https://typescriptlang.org)
 [![Claude API](https://img.shields.io/badge/Claude-Anthropic-d97706?style=for-the-badge)](https://anthropic.com)
@@ -49,11 +48,13 @@ AI agents fail on most of them — not because they're not smart, but because we
 </div>
 
 <br/>
+
+```
 URL Input
 │
 ▼
 Playwright Crawler  ──→  stealth mode, headless Chromium, up to 5 pages
-│                     captures screenshots streamed live via SSE
+│                         captures screenshots streamed live via SSE
 ▼
 Claude Analysis — Pass 1
 │  scores 10 categories (0–10 each) with detailed reasoning
@@ -62,6 +63,7 @@ Claude Analysis — Pass 2
 │  generates complete agents.json from crawl data + scores
 ▼
 Results UI + Download agents.json
+```
 
 ---
 
@@ -124,6 +126,7 @@ Results UI + Download agents.json
 ## Before vs After Qrawl
 
 **Before** — blind agent, 12 confused steps, 0% success rate
+```
 → Navigate to homepage
 → Look for search input (not found)
 → Try /search (404)
@@ -131,12 +134,15 @@ Results UI + Download agents.json
 → Hit auth wall
 → Retry login (form not detected)
 → ... 7 more failed steps
+```
 
 **After** — spec-driven agent using agents.json, 4 clean steps, task complete ✓
+```
 → Load agents.json from qrawl
 → Navigate to best_entry_point
 → Execute browse_catalogue action
 → Extract structured data ✓
+```
 
 ---
 
@@ -180,27 +186,21 @@ npm run dev
 ---
 
 ## Project Structure
+
+```
 app/
-page.tsx                     # Main UI (input → live crawl → results)
-api/crawl/stream/route.ts    # SSE streaming endpoint
-api/crawl/route.ts           # Regular crawl endpoint
-api/analyse/route.ts         # Claude analyser
+  page.tsx                      # Main UI (input → live crawl → results)
+  api/crawl/stream/route.ts     # SSE streaming endpoint
+  api/crawl/route.ts            # Regular crawl endpoint
+  api/analyse/route.ts          # Claude analyser
 lib/
-crawler/index.ts             # Playwright stealth crawler
-crawler/streaming.ts         # Screenshot streaming
-analyser/index.ts            # Claude scoring + agents.json generation
-demo/before.ts               # Blind agent demo (12 steps)
-demo/after.ts                # Spec-driven agent demo (4 steps)
-bob_sessions/                  # All 6 IBM Bob sessions + screenshots
-screenshots/                   # UI screenshots for this README
-
----
-
-## Built at IBM Bob Hackathon 2026
-
-Built in **48 hours** solo at the [IBM Bob Hackathon](https://lablab.ai) (May 15–17, 2026) by **Bhavesh Khatri** (Team: Qrew).
-
-IBM Bob served as AI development partner throughout — reviewing the full codebase, improving scoring prompt determinism, fixing bot detection resilience, and ensuring agents.json output consistency. All 6 sessions documented in `bob_sessions/`.
+  crawler/index.ts              # Playwright stealth crawler
+  crawler/streaming.ts          # Screenshot streaming
+  analyser/index.ts             # Claude scoring + agents.json generation
+  demo/before.ts                # Blind agent demo (12 steps)
+  demo/after.ts                 # Spec-driven agent demo (4 steps)
+screenshots/                    # UI screenshots for this README
+```
 
 ---
 
